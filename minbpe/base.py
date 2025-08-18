@@ -87,16 +87,33 @@ class Tokenizer:
         self.vocab = vocab
         # Tokenizer can train a vocabulary of size vocab_size from text
         
-    def encode(self, text):
-        # Tokenizer can encode a string into a list of integers
-        raise NotImplementedError
+    def encode(self, text: str) -> List:
+        """
+        Summary:
+            encodes plain text string into integers based on byte pair encoding
+            merges
+        Args:
+            text (str): plain text string
+        Returns:
+            List: list of integers representing truncs
+        """
+
+        text_bytes = text.encode('utf-8')
+        int_ids = list(text_bytes)
+
+        while len(int_ids) >= 2:
+            stats = get_stats(int_ids)
+            
 
     def decode(self, int_ids: List) -> str:
         """
         Summary:
+            Takes list of integers, uses vocab dict to convert them into byte
+            string, then uses utf-8 decoder to convert to string
         Args:
+            int_ids (List): list of integers representing characters
         Returns:
-
+            str: plain text string
         """
 
         text_bytes = b''.join(self.vocab[idx] for idx in int_ids)
