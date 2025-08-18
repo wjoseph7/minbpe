@@ -6,6 +6,7 @@ e.g. isolating all regex/pattern parts to the RegexTokenizer, but
 some concessions are made for simplicity.
 """
 import unicodedata
+from typing import List
 
 # -----------------------------------------------------------------------------
 # a few helper functions useful for both BasicTokenizer and RegexTokenizer
@@ -74,16 +75,34 @@ class Tokenizer:
         self.vocab = self._build_vocab() # int -> bytes
 
     def train(self, text, vocab_size, verbose=False):
-        # Tokenizer can train a vocabulary of size vocab_size from text
-        raise NotImplementedError
+        assert vocab_size >= 256 # our default vocab size is 256 because of utf-8
 
+        text_bytes = text.encode('utf-8') # converts text to bytes
+        int_ids = list(text_bytes) # converts bytes to integers
+
+        merges = {} # (int, int) -> int (merged integers / bytes)
+        vocab = {idx : bytes([idx]) for idx in range(256)} # integer to bytes mapping
+
+        self.merges = merges
+        self.vocab = vocab
+        # Tokenizer can train a vocabulary of size vocab_size from text
+        
     def encode(self, text):
         # Tokenizer can encode a string into a list of integers
         raise NotImplementedError
 
-    def decode(self, ids):
-        # Tokenizer can decode a list of integers into a string
-        raise NotImplementedError
+    def decode(self, int_ids: List) -> str:
+        """
+        Summary:
+        Args:
+        Returns:
+
+        """
+
+        text_bytes = b''.join(self.vocab[idx] for idx in int_ids)
+        text = text_bytes.decode('utf-8', errors='replace')
+        
+        return text
 
     def _build_vocab(self):
         # vocab is simply and deterministically derived from merges
