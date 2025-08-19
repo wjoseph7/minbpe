@@ -7,6 +7,7 @@ some concessions are made for simplicity.
 """
 import unicodedata
 from typing import List
+#from minbpe.tests.test_tokenizer import test_wikipedia_example
 
 # -----------------------------------------------------------------------------
 # a few helper functions useful for both BasicTokenizer and RegexTokenizer
@@ -74,7 +75,7 @@ class Tokenizer:
         self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
         self.vocab = self._build_vocab() # int -> bytes
 
-    def train(self, text: str, vocab_size: int, verbose: bool=False) -> None:
+    def train(self, text: str, vocab_size: int, verbose: bool=True) -> None:
         """
         Summary:
             Trains the text tokenizer. After the string is converted to integers
@@ -106,12 +107,12 @@ class Tokenizer:
             pair_highest_count = max(stats, key=stats.get)
             index = 256 + n
             int_ids = merge(int_ids, pair_highest_count, index)
-            merges[pair] = index
-            vocab[index] = vocab[pair[0]] + vocab[pair[1]]
+            merges[pair_highest_count] = index
+            vocab[index] = vocab[pair_highest_count[0]] + vocab[pair_highest_count[1]]
             if verbose:
                 print(
-                    f'merge {n+1}/num_merges}: {pair_highest_count} -> \
-                    {index} ({vocab[index]}) had {stats[pair_highest_count]} occurences'
+                    f'merge {n+1}/{num_merges}: {pair_highest_count} -> ' +
+                    f'{index} ({vocab[index]}) had {stats[pair_highest_count]} occurences'
                 )
         self.merges = merges
         self.vocab = vocab
@@ -136,14 +137,19 @@ class Tokenizer:
         Returns:
             List: list of integers representing truncs
         """
+        
 
         text_bytes = text.encode('utf-8')
         int_ids = list(text_bytes)
 
+        print('encode debugging')
+        print(self.merges)
+        print(text)
+        print(int_ids)
+
         while len(int_ids) >= 2:
             stats = get_stats(int_ids)
             merge_index = {}
-            int_ids = []
             for pair in stats:
                 if pair in self.merges:
                     merge_index[pair] = self.merges[pair]
@@ -154,10 +160,10 @@ class Tokenizer:
                 merge_index,
                 key=lambda p: merge_index[p]
             )
-            if pair not in self.merges:
+            if pair_lowest_merge_index not in self.merges:
                 break
 
-            index = self.merges[pair]
+            index = self.merges[pair_lowest_merge_index]
             int_ids = merge(int_ids, pair_lowest_merge_index, index)
 
         return int_ids
@@ -257,3 +263,37 @@ class Tokenizer:
         self.merges = merges
         self.special_tokens = special_tokens
         self.vocab = self._build_vocab()
+
+def test_wikipedia_example(tokenizer_factory):
+    """
+    Quick unit test, following along the Wikipedia example:
+    https://en.wikipedia.org/wiki/Byte_pair_encoding
+
+    According to Wikipedia, running bpe on the input string:
+    "aaabdaaabac"
+
+    for 3 merges will result in string:
+    "XdXac"
+
+    where:
+    X=ZY
+    Y=ab
+    Z=aa
+
+    Keep in mind that for us a=97, b=98, c=99, d=100 (ASCII values)
+    so Z will be 256, Y will be 257, X will be 258.
+
+    So we expect the output list of ids to be [258, 100, 258, 97, 99]
+    """
+    tokenizer = tokenizer_factory()
+    text = "aaabdaaabac"
+    print(f'training tokenizer and testing on text {text}')
+    tokenizer.train(text, 256 + 3)
+    ids = tokenizer.encode(text)
+    assert ids == [258, 100, 258, 97, 99]
+    assert tokenizer.decode(tokenizer.encode(text)) == text
+
+    print('simple test passed!!')
+
+if __name__ == '__main__':
+    test_wikipedia_example(Tokenizer)

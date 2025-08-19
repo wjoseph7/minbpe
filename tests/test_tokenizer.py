@@ -2,7 +2,7 @@ import pytest
 import tiktoken
 import os
 
-from minbpe import BasicTokenizer, RegexTokenizer, GPT4Tokenizer
+from minbpe import Tokenizer, BasicTokenizer, RegexTokenizer, GPT4Tokenizer
 
 # -----------------------------------------------------------------------------
 # common test data
@@ -77,7 +77,7 @@ def test_gpt4_tiktoken_equality_special_tokens():
     assert gpt4_tokenizer_ids == tiktoken_ids
 
 # reference test to add more tests in the future
-@pytest.mark.parametrize("tokenizer_factory", [BasicTokenizer, RegexTokenizer])
+@pytest.mark.parametrize("tokenizer_factory", [Tokenizer, BasicTokenizer, RegexTokenizer])
 def test_wikipedia_example(tokenizer_factory):
     """
     Quick unit test, following along the Wikipedia example:
