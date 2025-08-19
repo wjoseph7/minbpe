@@ -74,8 +74,23 @@ class Tokenizer:
         self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
         self.vocab = self._build_vocab() # int -> bytes
 
-    def train(self, text, vocab_size, verbose=False):
+    def train(self, text: str, vocab_size: int, verbose: bool=False) -> None:
+        """
+        Summary:
+            Trains the text tokenizer. After the string is converted to integers
+            using utf-8, we then:
+            1. compute the frequency of each pair
+            2. find the pair with the maximum frequency
+            3. increment the vocab size by one and replace the integer list with the new pair index
+            4. save rules to vocabulary for decoding
+            5. iterate between 1-4 until for specified vocab size
+        Args:
+            text (str): str of text we want to train tokenizer on
+            vocab_size (int): size of our vocab (number of tokens)
+            verbose (bool): prints out computed merges
+        """
         assert vocab_size >= 256 # our default vocab size is 256 because of utf-8
+        num_merges = vocab_size - 256
 
         text_bytes = text.encode('utf-8') # converts text to bytes
         int_ids = list(text_bytes) # converts bytes to integers
@@ -85,13 +100,37 @@ class Tokenizer:
 
         self.merges = merges
         self.vocab = vocab
-        # Tokenizer can train a vocabulary of size vocab_size from text
+
+        for n in range(num_merges):
+            stats = get_stats(int_ids)
+            pair_highest_count = max(stats, key=stats.get)
+            index = 256 + n
+            int_ids = merge(int_ids, pair_highest_count, index)
+            merges[pair] = index
+            vocab[index] = vocab[pair[0]] + vocab[pair[1]]
+            if verbose:
+                print(
+                    f'merge {n+1}/num_merges}: {pair_highest_count} -> \
+                    {index} ({vocab[index]}) had {stats[pair_highest_count]} occurences'
+                )
+        self.merges = merges
+        self.vocab = vocab
+
         
     def encode(self, text: str) -> List:
         """
         Summary:
             encodes plain text string into integers based on byte pair encoding
             merges
+
+            Following steps:
+
+            1. We compute the stats for the existing merged integer text (frequency of pairs)
+            2. Of the existing text we compute the pair with the lowest merge index
+            3. We merge the pair
+            4. iterate 1-3
+            5. return reduced/encoded integer text when no further merges available
+
         Args:
             text (str): plain text string
         Returns:
@@ -103,7 +142,26 @@ class Tokenizer:
 
         while len(int_ids) >= 2:
             stats = get_stats(int_ids)
-            
+            merge_index = {}
+            int_ids = []
+            for pair in stats:
+                if pair in self.merges:
+                    merge_index[pair] = self.merges[pair]
+                else:
+                    merge_index[pair] = float('inf')
+
+            pair_lowest_merge_index = min(
+                merge_index,
+                key=lambda p: merge_index[p]
+            )
+            if pair not in self.merges:
+                break
+
+            index = self.merges[pair]
+            int_ids = merge(int_ids, pair_lowest_merge_index, index)
+
+        return int_ids
+
 
     def decode(self, int_ids: List) -> str:
         """
